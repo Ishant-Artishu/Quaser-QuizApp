@@ -1,0 +1,25 @@
+# Ignore local build artifacts
+target/
+*.jar
+*.war
+
+# Ignore IDE settings (IntelliJ/VS Code)
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Ignore version control
+.git/
+.gitignore
+
+# Ignore Maven wrapper if you aren't using it in the Dockerfile
+.mvn/
+mvnw
+mvnw.cmd
+
+# Ignore documentation and local logs
+HELP.md
+*.log
