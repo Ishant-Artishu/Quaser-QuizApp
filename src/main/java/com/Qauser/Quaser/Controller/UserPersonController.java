@@ -46,10 +46,5 @@ public class UserPersonController {
 
         return ResponseEntity.ok(Map.of("token", token));
     }
-
-    @GetMapping("/flower")
-    public String flour(){
-        return "My name is Shoko Yagamoto";
-    }
 }
 

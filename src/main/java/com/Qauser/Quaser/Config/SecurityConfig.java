@@ -23,7 +23,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // must disable for POST requests from Postman
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/userPeople/login", "/userPeople/register", "/userPeople/flower").permitAll() // public endpoints
+                        .requestMatchers("/userPeople/login", "/userPeople/register").permitAll() // public endpoints
                         .anyRequest().authenticated() // everything else requires authentication
                 )
                 .sessionManagement(session -> session
