@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Explicitly permit the status check to bypass the 403 CORS/Auth trap
+                        // Force permit the status check to bypass browser-level 403 blocks
                         .requestMatchers("/userPeople/login", "/userPeople/register", "/userPeople/isLoggedIn").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
@@ -42,7 +42,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Origin patterns are more robust for cross-site credentials
+        // Origin patterns are safer for cross-site cookie handling
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Cookie"));
