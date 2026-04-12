@@ -60,20 +60,32 @@ public class UserPersonController {
 
     @GetMapping("/isLoggedIn")
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
-        // If user is null, the JWT filter failed or cookie is missing
+        // 1. Handle Case: User not found in SecurityContext (Filter failed or no cookie)
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("status", "unauthenticated"));
+                    .body(Map.of("status", "unauthenticated", "message", "No active session"));
         }
 
-        // CRITICAL FIX: Return a Map of strings, NOT the User object.
-        // This prevents the 'getAuthorities' serialization error.
-        return ResponseEntity.ok(Map.of(
-                "email", user.getEmail(),
-                "username", user.getUsername(),
-                "role", user.getRole().name(), // Just sends "USER" or "ADMIN"
-                "status", "authenticated"
-        ));
+        try {
+            // 2. Safely extract role name to prevent NPE if role is null in DB
+            String roleName = (user.getRole() != null) ? user.getRole().name() : "GUEST";
+
+            // 3. Handle potential nulls for email or username fields
+            String email = (user.getEmail() != null) ? user.getEmail() : "No Email";
+            String username = (user.getUsername() != null) ? user.getUsername() : "Anonymous";
+
+            return ResponseEntity.ok(Map.of(
+                    "email", email,
+                    "username", username,
+                    "role", roleName,
+                    "status", "authenticated"
+            ));
+        } catch (Exception e) {
+            // 4. Global catch for this method to ensure the frontend gets a response
+            // instead of a "hanging" request or raw 500 error.
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("status", "error", "message", "Internal processing error"));
+        }
     }
 
     @PostMapping("/logout")
