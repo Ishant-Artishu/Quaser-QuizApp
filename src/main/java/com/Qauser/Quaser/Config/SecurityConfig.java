@@ -26,18 +26,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(Customizer.withDefaults()) // Uses the corsConfigurationSource bean below
-                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable()) // MUST be disabled for JWT
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers("/userPeople/login", "/userPeople/register").permitAll()
-                        // Allow all preflight (OPTIONS) requests
+                        // Use a broader matcher to ensure nothing interferes with the userPeople path
+                        .requestMatchers("/userPeople/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Everything else requires a valid JWT cookie
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Add your JWT Filter before the standard UsernamePassword filter
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
