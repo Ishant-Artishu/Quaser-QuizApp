@@ -27,11 +27,15 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable()) // MUST be disabled for JWT
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Use a broader matcher to ensure nothing interferes with the userPeople path
-                        .requestMatchers("/userPeople/**").permitAll()
+                        // 1. Only permit the absolute necessities
+                        .requestMatchers("/userPeople/login", "/userPeople/register").permitAll()
+
+                        // 2. Allow Preflight (OPTIONS) for everything to avoid CORS 403s
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 3. Everything else (including /isLoggedIn and /quiz/**) MUST be authenticated
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -44,12 +48,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Exact frontend origin
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        // Support both HTTP and HTTPS localhost if your friend uses the SSL plugin
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With"));
 
-        // CRITICAL: This allows the browser to actually store and send back the 'token' cookie
+        // Exposed headers can help some browsers recognize the Set-Cookie header better
+        configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
+
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
