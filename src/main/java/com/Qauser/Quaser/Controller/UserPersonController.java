@@ -49,7 +49,7 @@ public class UserPersonController {
         // Build the Cookie
         ResponseCookie cookie = ResponseCookie.from("token", token)
                 .httpOnly(true)            // Prevents JS access (protects against XSS)
-                .secure(true)              // Required for SameSite=None
+                .secure(false)              // Required for SameSite=None
                 .path("/")                 // Available for the whole app
                 .maxAge(24 * 60 * 60)      // 1 day expiry
                 .sameSite("None")          // Required because Frontend is localhost and Backend is Railway
