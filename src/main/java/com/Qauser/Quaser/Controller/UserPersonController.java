@@ -60,19 +60,20 @@ public class UserPersonController {
 
     @GetMapping("/isLoggedIn")
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
-        // 1. Handle Case: User not found in SecurityContext (Filter failed or no cookie)
+        // 1. Handle case where user isn't found in SecurityContext
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("status", "unauthenticated", "message", "No active session"));
+                    .body(Map.of("status", "unauthenticated"));
         }
 
         try {
-            // 2. Safely extract role name to prevent NPE if role is null in DB
+            // 2. Safely extract role with a fallback to prevent NPE
+            // If role is null in DB, it defaults to the string "GUEST"
             String roleName = (user.getRole() != null) ? user.getRole().name() : "GUEST";
 
-            // 3. Handle potential nulls for email or username fields
-            String email = (user.getEmail() != null) ? user.getEmail() : "No Email";
-            String username = (user.getUsername() != null) ? user.getUsername() : "Anonymous";
+            // 3. Optional: Fallback for other potential nulls
+            String email = (user.getEmail() != null) ? user.getEmail() : "Unknown";
+            String username = (user.getUsername() != null) ? user.getUsername() : "User";
 
             return ResponseEntity.ok(Map.of(
                     "email", email,
@@ -81,13 +82,12 @@ public class UserPersonController {
                     "status", "authenticated"
             ));
         } catch (Exception e) {
-            // 4. Global catch for this method to ensure the frontend gets a response
-            // instead of a "hanging" request or raw 500 error.
+            // 4. Catch-all to prevent the "403/No Response" ghost error
+            System.out.println("Error in isLoggedIn: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("status", "error", "message", "Internal processing error"));
+                    .body(Map.of("status", "error", "message", "Processing failed"));
         }
     }
-
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         ResponseCookie cookie = ResponseCookie.from("token", "")
