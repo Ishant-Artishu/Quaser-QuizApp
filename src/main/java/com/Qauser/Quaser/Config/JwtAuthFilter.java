@@ -32,11 +32,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         final String jwt;
-        final String username;
+        final String userEmail; // Renamed for clarity since we use email
         String tempJwt = null;
 
-        // 1. Skip filter for login and register endpoints to avoid unnecessary processing
         String path = request.getServletPath();
+
+        // 1. Skip for public endpoints
         if (path.contains("/userPeople/login") || path.contains("/userPeople/register")) {
             filterChain.doFilter(request, response);
             return;
@@ -52,7 +53,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
 
-        // 3. If no token found in cookies, move to the next filter
+        // 3. Continue if no token is present (SecurityConfig will handle the 403)
         if (tempJwt == null) {
             filterChain.doFilter(request, response);
             return;
@@ -61,11 +62,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         jwt = tempJwt;
 
         try {
-            username = jwtService.extractUsername(jwt);
+            // This now extracts the EMAIL from the token
+            userEmail = jwtService.extractUsername(jwt);
 
-            // 4. Authenticate the user if the token is valid and not already authenticated
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // This calls the bean in ApplicationConfig using the EMAIL
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
                 if (jwtService.isValidToken(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -80,7 +82,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            // If token is expired or malformed, we just clear the context
+            // Logs are helpful for debugging Railway 403s!
+            System.out.println("JWT Filter Error: " + e.getMessage());
             SecurityContextHolder.clearContext();
         }
 

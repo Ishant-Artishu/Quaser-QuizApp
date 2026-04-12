@@ -5,14 +5,17 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
@@ -28,21 +31,25 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> claims = new HashMap<>();
+
+        // Convert authorities to a simple list of strings for the JWT
+        List<String> roles = userDetails.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        claims.put("roles", roles);
+        return generateToken(claims, userDetails);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        // FIX: Ensure roles are included in the claims if you use RBAC
-        if (extraClaims.isEmpty()) {
-            extraClaims.put("roles", userDetails.getAuthorities());
-        }
-
         return Jwts
                 .builder()
                 .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername())
+                .setSubject(userDetails.getUsername()) // This is the email
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                // FIX: 1000 * 60 * 60 * 24 = 24 Hours. (Your previous code was 24 minutes)
+                // 24 Hour expiration
                 .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
@@ -51,10 +58,10 @@ public class JwtService {
     public Boolean isValidToken(String token, UserDetails userDetails) {
         try {
             final String username = extractUsername(token);
+            // userDetails.getUsername() is the email in your current Entity setup
             return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
         } catch (Exception e) {
-            // Log this on Railway to see if the key or format is wrong
-            System.out.println("Token validation error: " + e.getMessage());
+            System.out.println("JWT Validation Error: " + e.getMessage());
             return false;
         }
     }
@@ -82,7 +89,7 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        // This decodes the JWT_SECRET from your Railway Environment Variables
+        // Ensure your Railway variable 'jwt.secret' is a proper Base64 string!
         byte[] keyBytes = Decoders.BASE64.decode(jwtConfig.getSecret());
         return Keys.hmacShaKeyFor(keyBytes);
     }
