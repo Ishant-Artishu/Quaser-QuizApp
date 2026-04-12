@@ -3,7 +3,6 @@ package com.Qauser.Quaser.Controller;
 import com.Qauser.Quaser.Config.JwtService;
 import com.Qauser.Quaser.Entity.User;
 import com.Qauser.Quaser.Service.UserPersonService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -27,8 +26,7 @@ public class UserPersonController {
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> registerUser(@RequestBody User user) {
         User savedUser = userService.registerUser(user);
-        savedUser.setPassword(null);
-
+        // Security best practice: Don't return the password (even if hashed) in the response
         return ResponseEntity.ok(Map.of(
                 "id", savedUser.getId(),
                 "username", savedUser.getUsername(),
@@ -37,33 +35,33 @@ public class UserPersonController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody User user, HttpServletResponse response) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
         User authenticatedUser = userService.authenticate(user.getUsername(), user.getPassword());
 
         if (authenticatedUser == null) {
+            // 401 is more accurate than 403 for failed login credentials
             return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
         }
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        // Build the Cookie
+        // Build the Cookie - MUST use None and True for Cross-Site (Railway -> Localhost)
         ResponseCookie cookie = ResponseCookie.from("token", token)
-                .httpOnly(true)            // Prevents JS access (protects against XSS)
-                .secure(false)              // Required for SameSite=None
-                .path("/")                 // Available for the whole app
+                .httpOnly(true)            // Protects against XSS
+                .secure(true)              // Required for SameSite=None (Must be served over HTTPS)
+                .path("/")                 // Makes cookie available for all endpoints (like /quiz)
                 .maxAge(24 * 60 * 60)      // 1 day expiry
-                .sameSite("Lax")          // Required because Frontend is localhost and Backend is Railway
+                .sameSite("None")          // Allows cookie to be sent from Railway to Localhost
                 .build();
 
-        // Add the cookie to the response headers
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(Map.of("message", "Login successful"));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletResponse response) {
-        // To logout, we send a cookie with the same name but 0 maxAge to delete it
+    public ResponseEntity<?> logout() {
+        // To logout, we overwrite the cookie with maxAge 0 to delete it
         ResponseCookie cookie = ResponseCookie.from("token", "")
                 .httpOnly(true)
                 .secure(true)
