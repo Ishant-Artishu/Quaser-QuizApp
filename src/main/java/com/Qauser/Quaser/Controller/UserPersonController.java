@@ -40,7 +40,7 @@ public class UserPersonController {
 
         if (authenticatedUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "false"));
+                    .body(Map.of("error", "Invalid email or password"));
         }
 
         String token = jwtService.generateToken(authenticatedUser);
@@ -55,39 +55,28 @@ public class UserPersonController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(Map.of("message", "true"));
+                .body(Map.of("message", "Login successful"));
     }
 
     @GetMapping("/isLoggedIn")
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
-        // 1. Handle case where user isn't found in SecurityContext
+        // Because we used permitAll() in SecurityConfig, we manually check user here
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("status", "unauthenticated"));
         }
 
-        try {
-            // 2. Safely extract role with a fallback to prevent NPE
-            // If role is null in DB, it defaults to the string "GUEST"
-            String roleName = (user.getRole() != null) ? user.getRole().name() : "GUEST";
+        // Safety check for Role to prevent NPE
+        String roleName = (user.getRole() != null) ? user.getRole().name() : "USER";
 
-            // 3. Optional: Fallback for other potential nulls
-            String email = (user.getEmail() != null) ? user.getEmail() : "Unknown";
-            String username = (user.getUsername() != null) ? user.getUsername() : "User";
-
-            return ResponseEntity.ok(Map.of(
-                    "email", email,
-                    "username", username,
-                    "role", roleName,
-                    "status", "authenticated"
-            ));
-        } catch (Exception e) {
-            // 4. Catch-all to prevent the "403/No Response" ghost error
-            System.out.println("Error in isLoggedIn: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("status", "error", "message", "Processing failed"));
-        }
+        return ResponseEntity.ok(Map.of(
+                "email", user.getEmail(),
+                "username", user.getUsername(),
+                "role", roleName,
+                "status", "authenticated"
+        ));
     }
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         ResponseCookie cookie = ResponseCookie.from("token", "")
