@@ -40,7 +40,7 @@ public class UserPersonController {
 
         if (authenticatedUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid email or password"));
+                    .body(Map.of("message", "false"));
         }
 
         String token = jwtService.generateToken(authenticatedUser);
@@ -55,7 +55,7 @@ public class UserPersonController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(Map.of("message", "Login successful"));
+                .body(Map.of("message", "true"));
     }
 
     @GetMapping("/isLoggedIn")
