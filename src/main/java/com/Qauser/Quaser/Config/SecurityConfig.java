@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,16 +25,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(Customizer.withDefaults())
+                // Use the configurationSource directly to ensure it loads first
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Only permit the absolute necessities
-                        .requestMatchers("/userPeople/login", "/userPeople/register").permitAll()
-
-                        // 2. Allow Preflight (OPTIONS) for everything to avoid CORS 403s
+                        // Permitting the entry points and the status check explicitly
+                        .requestMatchers("/userPeople/login", "/userPeople/register", "/userPeople/isLoggedIn").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // 3. Everything else (including /isLoggedIn and /quiz/**) MUST be authenticated
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -48,14 +44,21 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Support both HTTP and HTTPS localhost if your friend uses the SSL plugin
+        // 1. Ensure the origin matches the frontend exactly
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
+
+        // 2. Add 'Cookie' to allowed headers
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "X-Requested-With",
+                "Cookie",
+                "Access-Control-Allow-Credentials"
+        ));
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With"));
-
-        // Exposed headers can help some browsers recognize the Set-Cookie header better
         configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
-
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
