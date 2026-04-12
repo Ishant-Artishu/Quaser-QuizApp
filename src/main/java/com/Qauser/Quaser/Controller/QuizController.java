@@ -13,16 +13,17 @@ import java.util.List;
 @RequestMapping("/quiz")
 public class QuizController {
 
-
     private final QuizService quizService;
 
     public QuizController(QuizService quizService) {
         this.quizService = quizService;
     }
 
-
     @GetMapping("/generate")
-    private List<Question> generateQuestions(@RequestParam int reqSize){
+    // Added defaultValue to prevent the MissingServletRequestParameterException
+    public List<Question> generateQuestions(
+            @RequestParam(defaultValue = "10") int reqSize
+    ) {
         return quizService.generateQuestions(reqSize);
     }
 }
