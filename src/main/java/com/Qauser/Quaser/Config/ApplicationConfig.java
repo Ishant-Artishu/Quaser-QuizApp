@@ -20,11 +20,11 @@ public class ApplicationConfig {
     private final UserRepo repository;
 
     @Bean
-    public UserDetailsService userDetailsService(){
-        return username -> repository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Not Found!"));
+    public UserDetailsService userDetailsService() {
+        // This is critical: Tell Spring to use email as the "username"
+        return email -> repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
-
     @Bean
     public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
