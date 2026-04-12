@@ -25,11 +25,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Use the configurationSource directly to ensure it loads first
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Permitting the entry points and the status check explicitly
+                        // Permitting the status check explicitly to bypass the 'Gate'
                         .requestMatchers("/userPeople/login", "/userPeople/register", "/userPeople/isLoggedIn").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
@@ -44,25 +43,18 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 1. Ensure the origin matches the frontend exactly
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
+        // Use Pattern for better reliability with credentials
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
 
-        // 2. Add 'Cookie' to allowed headers
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "X-Requested-With",
-                "Cookie",
-                "Access-Control-Allow-Credentials"
-        ));
-
+        // Explicitly allow all common headers used in auth
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Cookie"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
+
+        // This allows React to 'see' the cookie coming back
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-}
+    }}
