@@ -3,12 +3,14 @@ package com.Qauser.Quaser.Controller;
 import com.Qauser.Quaser.Config.JwtService;
 import com.Qauser.Quaser.Entity.User;
 import com.Qauser.Quaser.Service.UserPersonService;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -57,6 +59,21 @@ public class UserPersonController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(Map.of("message", "Login successful"));
+    }
+
+    @PostMapping("/isLoggedIn")
+    public ResponseEntity<?> checkLoginStatus(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not logged in");
+        }
+
+        // Return a small map of user info for the frontend
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("email", user.getEmail());
+        userInfo.put("role", user.getRole());
+        userInfo.put("username", user.getUsername());
+
+        return ResponseEntity.ok(userInfo);
     }
 
     @PostMapping("/logout")
