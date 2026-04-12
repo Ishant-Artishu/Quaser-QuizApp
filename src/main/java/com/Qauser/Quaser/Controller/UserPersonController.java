@@ -62,18 +62,11 @@ public class UserPersonController {
     }
 
     @PostMapping("/isLoggedIn")
-    public ResponseEntity<?> checkLoginStatus(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not logged in");
+            return ResponseEntity.status(401).body("Session expired or invalid");
         }
-
-        // Return a small map of user info for the frontend
-        Map<String, Object> userInfo = new HashMap<>();
-        userInfo.put("email", user.getEmail());
-        userInfo.put("role", user.getRole());
-        userInfo.put("username", user.getUsername());
-
-        return ResponseEntity.ok(userInfo);
+        return ResponseEntity.ok(user);
     }
 
     @PostMapping("/logout")

@@ -32,13 +32,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         final String jwt;
-        final String userEmail; // Renamed for clarity since we use email
+        final String userEmail;
         String tempJwt = null;
 
         String path = request.getServletPath();
 
-        // 1. Skip for public endpoints
-        if (path.contains("/userPeople/login") || path.contains("/userPeople/register") || path.contains("/userPeople/isLoggedIn")) {
+        // 1. Skip ONLY login and register.
+        // We DO NOT skip /isLoggedIn because we need this filter to validate the cookie.
+        if (path.contains("/userPeople/login") || path.contains("/userPeople/register")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -53,7 +54,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
 
-        // 3. Continue if no token is present (SecurityConfig will handle the 403)
+        // 3. If no token is found, move to next filter.
+        // SecurityConfig will decide if the path requires authentication.
         if (tempJwt == null) {
             filterChain.doFilter(request, response);
             return;
@@ -62,11 +64,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         jwt = tempJwt;
 
         try {
-            // This now extracts the EMAIL from the token
+            // Extract the EMAIL (subject) from the token
             userEmail = jwtService.extractUsername(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                // This calls the bean in ApplicationConfig using the EMAIL
+                // Load user from DB using the email
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
                 if (jwtService.isValidToken(jwt, userDetails)) {
@@ -78,11 +80,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     authToken.setDetails(
                             new WebAuthenticationDetailsSource().buildDetails(request)
                     );
+
+                    // CRITICAL: This line populates the SecurityContext so @AuthenticationPrincipal works
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
-            // Logs are helpful for debugging Railway 403s!
             System.out.println("JWT Filter Error: " + e.getMessage());
             SecurityContextHolder.clearContext();
         }
