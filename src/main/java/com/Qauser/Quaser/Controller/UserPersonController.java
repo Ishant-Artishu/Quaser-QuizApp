@@ -70,7 +70,6 @@ public class UserPersonController {
         // This prevents the 'getAuthorities' serialization error.
         return ResponseEntity.ok(Map.of(
                 "email", user.getEmail(),
-                "username", user.getUsername(),
                 "role", user.getRole().name(), // Just sends "USER" or "ADMIN"
                 "status", "authenticated"
         ));
