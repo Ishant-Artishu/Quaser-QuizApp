@@ -36,7 +36,6 @@ public class UserPersonController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
-        // Note: Using findByEmail logic in service, but mapped to user.getUsername() if that's where email is stored
         User authenticatedUser = userService.authenticate(user.getUsername(), user.getPassword());
 
         if (authenticatedUser == null) {
@@ -46,13 +45,12 @@ public class UserPersonController {
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        // Build Cookie for Railway (HTTPS) to Localhost (HTTP/HTTPS)
         ResponseCookie cookie = ResponseCookie.from("token", token)
                 .httpOnly(true)
-                .secure(true)    // Required for SameSite=None
+                .secure(true)
                 .path("/")
                 .maxAge(24 * 60 * 60)
-                .sameSite("None") // Required for Cross-Origin
+                .sameSite("None")
                 .build();
 
         return ResponseEntity.ok()
@@ -60,29 +58,26 @@ public class UserPersonController {
                 .body(Map.of("message", "Login successful"));
     }
 
-    /**
-     * Changed to GET to avoid 403 Forbidden issues common with POST status checks.
-     * Ensure React calls: axios.get(".../isLoggedIn", { withCredentials: true })
-     */
     @GetMapping("/isLoggedIn")
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
+        // If user is null, the JWT filter failed or cookie is missing
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("status", "unauthenticated"));
         }
 
-        // Return user info so frontend can update the UI/Navbar
+        // CRITICAL FIX: Return a Map of strings, NOT the User object.
+        // This prevents the 'getAuthorities' serialization error.
         return ResponseEntity.ok(Map.of(
                 "email", user.getEmail(),
                 "username", user.getUsername(),
-                "role", user.getRole(),
+                "role", user.getRole().name(), // Just sends "USER" or "ADMIN"
                 "status", "authenticated"
         ));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
-        // Clear the cookie by setting maxAge to 0
         ResponseCookie cookie = ResponseCookie.from("token", "")
                 .httpOnly(true)
                 .secure(true)
