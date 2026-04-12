@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -28,7 +27,6 @@ public class UserPersonController {
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> registerUser(@RequestBody User user) {
         User savedUser = userService.registerUser(user);
-        // Security best practice: Don't return the password (even if hashed) in the response
         return ResponseEntity.ok(Map.of(
                 "id", savedUser.getId(),
                 "username", savedUser.getUsername(),
@@ -38,22 +36,23 @@ public class UserPersonController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
+        // Note: Using findByEmail logic in service, but mapped to user.getUsername() if that's where email is stored
         User authenticatedUser = userService.authenticate(user.getUsername(), user.getPassword());
 
         if (authenticatedUser == null) {
-            // 401 is more accurate than 403 for failed login credentials
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid email or password"));
         }
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        // Build the Cookie - MUST use None and True for Cross-Site (Railway -> Localhost)
+        // Build Cookie for Railway (HTTPS) to Localhost (HTTP/HTTPS)
         ResponseCookie cookie = ResponseCookie.from("token", token)
-                .httpOnly(true)            // Protects against XSS
-                .secure(true)              // Required for SameSite=None (Must be served over HTTPS)
-                .path("/")                 // Makes cookie available for all endpoints (like /quiz)
-                .maxAge(24 * 60 * 60)      // 1 day expiry
-                .sameSite("None")          // Allows cookie to be sent from Railway to Localhost
+                .httpOnly(true)
+                .secure(true)    // Required for SameSite=None
+                .path("/")
+                .maxAge(24 * 60 * 60)
+                .sameSite("None") // Required for Cross-Origin
                 .build();
 
         return ResponseEntity.ok()
@@ -61,17 +60,29 @@ public class UserPersonController {
                 .body(Map.of("message", "Login successful"));
     }
 
-    @PostMapping("/isLoggedIn")
+    /**
+     * Changed to GET to avoid 403 Forbidden issues common with POST status checks.
+     * Ensure React calls: axios.get(".../isLoggedIn", { withCredentials: true })
+     */
+    @GetMapping("/isLoggedIn")
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
         if (user == null) {
-            return ResponseEntity.status(401).body("Session expired or invalid");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("status", "unauthenticated"));
         }
-        return ResponseEntity.ok(user);
+
+        // Return user info so frontend can update the UI/Navbar
+        return ResponseEntity.ok(Map.of(
+                "email", user.getEmail(),
+                "username", user.getUsername(),
+                "role", user.getRole(),
+                "status", "authenticated"
+        ));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
-        // To logout, we overwrite the cookie with maxAge 0 to delete it
+        // Clear the cookie by setting maxAge to 0
         ResponseCookie cookie = ResponseCookie.from("token", "")
                 .httpOnly(true)
                 .secure(true)
