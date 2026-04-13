@@ -34,13 +34,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // 1. If no Bearer token, just move on (SecurityConfig handles the rest)
+        // 1. Check if the header exists and starts with Bearer
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // 2. Extract the token (substring 7 removes "Bearer ")
         jwt = authHeader.substring(7);
+
+        // 3. Simple length check to avoid the "0 period characters" error spam
+        if (jwt.length() < 10 || !jwt.contains(".")) {
+            System.err.println("WARNING: Received invalid JWT format from: " + request.getRemoteAddr());
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         try {
             userEmail = jwtService.extractUsername(jwt);
@@ -50,16 +58,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 if (jwtService.isValidToken(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities()
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
                     );
+
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    // This makes @AuthenticationPrincipal work
+                    // This populates the @AuthenticationPrincipal for your Controller
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+        } catch (io.jsonwebtoken.JwtException e) {
+            // This catches malformed, expired, or signature errors specifically
+            System.out.println("JWT Validation Failed: " + e.getMessage());
         } catch (Exception e) {
-            System.out.println("JWT Filter Error: " + e.getMessage());
+            System.out.println("General Auth Filter Error: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);
