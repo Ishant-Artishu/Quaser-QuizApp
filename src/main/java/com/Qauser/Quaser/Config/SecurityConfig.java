@@ -26,14 +26,11 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // CSRF must be off for REST APIs
-                .cors(Customizer.withDefaults()) // Uses the bean below
+                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Allow login, register, and status check without ANY auth
                         .requestMatchers("/userPeople/login", "/userPeople/register", "/userPeople/isLoggedIn").permitAll()
-                        // 2. Allow the browser's "handshake" (The reason for most 403s)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // 3. Everything else needs a token
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -45,13 +42,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Use setAllowedOriginPatterns for better reliability between Railway and Localhost
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Allow all headers to stop the 403 guessing game
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        configuration.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
