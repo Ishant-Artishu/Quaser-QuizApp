@@ -51,7 +51,7 @@ public class UserPersonController {
     public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
         // user is populated by the filter, even if SecurityConfig is permitAll()
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "unauthenticated"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "Not Valid"));
         }
 
         // Handle case where user exists but role might be null in DB
