@@ -4,7 +4,6 @@ import com.Qauser.Quaser.Entity.User;
 import com.Qauser.Quaser.Entity.Role;
 import com.Qauser.Quaser.Service.UserPersonService;
 import com.Qauser.Quaser.Config.JwtService;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -27,31 +26,8 @@ public class UserPersonController {
         this.jwtService = jwtService;
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@RequestBody User user) {
-        try {
-            // matches your Optional-based service
-            if (userService.findByEmail(user.getEmail()) != null) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(Map.of("message", "false", "error", "User already exists"));
-            }
-
-            if (user.getRole() == null) {
-                user.setRole(Role.USER);
-            }
-
-            userService.registerUser(user);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(Map.of("message", "true", "details", "User registered successfully"));
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "false", "error", e.getMessage()));
-        }
-    }
-
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody User user, HttpServletResponse response) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
         User authenticatedUser = userService.authenticate(user.getEmail(), user.getPassword());
 
         if (authenticatedUser == null) {
@@ -61,18 +37,30 @@ public class UserPersonController {
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        // Create a Secure Cookie for Cross-Site usage
+        // This cookie config is mandatory for Railway -> Localhost
         ResponseCookie cookie = ResponseCookie.from("token", token)
                 .httpOnly(true)
-                .secure(true)    // Must be true for Railway (HTTPS)
+                .secure(true)    // Required because Railway uses HTTPS
                 .path("/")
                 .maxAge(24 * 60 * 60)
-                .sameSite("None") // Required for Localhost -> Railway communication
+                .sameSite("None") // Required for cross-site (localhost to railway)
                 .build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(Map.of("message", "true", "username", authenticatedUser.getUsername()));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@RequestBody User user) {
+        if (userService.findByEmail(user.getEmail()) != null) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", "false", "error", "User already exists"));
+        }
+        if (user.getRole() == null) user.setRole(Role.USER);
+        userService.registerUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of("message", "true"));
     }
 
     @GetMapping("/isLoggedIn")
@@ -87,4 +75,5 @@ public class UserPersonController {
                 "status", "authenticated",
                 "authenticated", "true"
         ));
-    }}
+    }
+}
