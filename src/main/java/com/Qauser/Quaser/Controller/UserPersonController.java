@@ -1,13 +1,13 @@
 package com.Qauser.Quaser.Controller;
 
 import com.Qauser.Quaser.Entity.User;
+import com.Qauser.Quaser.Entity.Role;
 import com.Qauser.Quaser.Service.UserPersonService;
 import com.Qauser.Quaser.Config.JwtService;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -24,46 +24,59 @@ public class UserPersonController {
         this.jwtService = jwtService;
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@RequestBody User user) {
+        try {
+            // matches your Optional-based service
+            if (userService.findByEmail(user.getEmail()) != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "false", "error", "User already exists"));
+            }
+
+            if (user.getRole() == null) {
+                user.setRole(Role.USER);
+            }
+
+            userService.registerUser(user);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of("message", "true", "details", "User registered successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "false", "error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
         User authenticatedUser = userService.authenticate(user.getUsername(), user.getPassword());
 
         if (authenticatedUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "false"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "false", "error", "Invalid Credentials"));
         }
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        ResponseCookie cookie = ResponseCookie.from("token", token)
-                .httpOnly(true)
-                .secure(true) // Required for SameSite=None
-                .path("/")
-                .maxAge(24 * 60 * 60)
-                .sameSite("None")
-                .build();
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(Map.of("message", "true"));
-    }
-
-    @GetMapping("/isLoggedIn")
-    public ResponseEntity<?> checkStatus(@AuthenticationPrincipal User user) {
-        // user is populated by the filter, even if SecurityConfig is permitAll()
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "Not Valid"));
-        }
-
-        // Handle case where user exists but role might be null in DB
-        String roleName = (user.getRole() != null) ? user.getRole().name() : "USER";
-
         return ResponseEntity.ok(Map.of(
-                "email", user.getEmail(),
-                "username", user.getUsername(),
-                "role", roleName,
-                "status", "authenticated"
+                "message", "true",
+                "token", token,
+                "username", authenticatedUser.getUsername(),
+                "role", (authenticatedUser.getRole() != null ? authenticatedUser.getRole().name() : "USER")
         ));
     }
 
-    // ... rest of your controller (register/logout)
+    @GetMapping("/isLoggedIn")
+    public ResponseEntity<Map<String, String>> checkStatus(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("status", "Not Valid", "authenticated", "false"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "username", userDetails.getUsername(),
+                "status", "authenticated",
+                "authenticated", "true"
+        ));
+    }
 }
