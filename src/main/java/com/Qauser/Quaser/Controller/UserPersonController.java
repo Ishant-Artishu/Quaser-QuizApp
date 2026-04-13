@@ -4,7 +4,10 @@ import com.Qauser.Quaser.Entity.User;
 import com.Qauser.Quaser.Entity.Role;
 import com.Qauser.Quaser.Service.UserPersonService;
 import com.Qauser.Quaser.Config.JwtService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -48,8 +51,8 @@ public class UserPersonController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
-        User authenticatedUser = userService.authenticate(user.getUsername(), user.getPassword());
+    public ResponseEntity<Map<String, String>> login(@RequestBody User user, HttpServletResponse response) {
+        User authenticatedUser = userService.authenticate(user.getEmail(), user.getPassword());
 
         if (authenticatedUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -58,12 +61,18 @@ public class UserPersonController {
 
         String token = jwtService.generateToken(authenticatedUser);
 
-        return ResponseEntity.ok(Map.of(
-                "message", "true",
-                "token", token,
-                "username", authenticatedUser.getUsername(),
-                "role", (authenticatedUser.getRole() != null ? authenticatedUser.getRole().name() : "USER")
-        ));
+        // Create a Secure Cookie for Cross-Site usage
+        ResponseCookie cookie = ResponseCookie.from("token", token)
+                .httpOnly(true)
+                .secure(true)    // Must be true for Railway (HTTPS)
+                .path("/")
+                .maxAge(24 * 60 * 60)
+                .sameSite("None") // Required for Localhost -> Railway communication
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(Map.of("message", "true", "username", authenticatedUser.getUsername()));
     }
 
     @GetMapping("/isLoggedIn")
@@ -78,5 +87,4 @@ public class UserPersonController {
                 "status", "authenticated",
                 "authenticated", "true"
         ));
-    }
-}
+    }}
